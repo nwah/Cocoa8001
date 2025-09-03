@@ -1,6 +1,6 @@
 // Portable Z80 emulation class
-// Copyright (C) Yasuo Kuwahara 2002-2021
-// version 2.20
+// Copyright (C) Yasuo Kuwahara 2002-2025
+// version 2.30
 
 #include "Z80.h"
 
@@ -199,6 +199,7 @@ enum {
 #define PARITY	((uint32_t)FPARITY	<< (LPV << 2))
 #define PV		((uint32_t)FPV		<< (LPV << 2))
 #define PVZ		((uint32_t)FPVZ		<< (LPV << 2))
+#define PIO		((uint32_t)FIO		<< (LPV << 2))
 #define N0		((uint32_t)FZERO	<< (LN << 2))
 #define N1		((uint32_t)FONE		<< (LN << 2))
 #define NB		((uint32_t)FBEFORE	<< (LN << 2))
@@ -235,7 +236,7 @@ enum {
 #define fbits(x)		(fp->dm = S8 | Z8 | H1 | PVZ | N0, fp->a = (x) & 0x80, fmnt())
 #define frs(x, y)		(fp->dm = S8 | Z8 | H0 | PARITY | N0 | CB, fp->a = (x), fp->b = (y), fmnt())
 #define fin(x, y)		(fp->dm = S8 | Z8 | H0 | PARITY | N0, fp->b = (x), fp->a = (y), fmnt())
-#define fbio(x, y, z)	(fp->dm = S8 | Z8 | HIO | NPV | CIO, fp->a = (x), fp->b = (y), fp->pv = (z), fmnt())
+#define fbio(x, y, z)	(fp->dm = S8 | Z8 | HIO | PIO | NPV | CIO, fp->a = (x), fp->b = (y), fp->pv = (z), fmnt())
 #define CY				(ResolvC())
 
 #define swap(a, b)		(tmp2 = (a), (a) = (b), (b) = tmp2)
@@ -641,11 +642,11 @@ int32_t Z80::Execute(int32_t n) {
 				st8(HL, tmp2);
 				CLOCK(1);
 				break;
-				// sla/sll reg
-#define SLA(i) case 0x20 + (i): case 0x30 + (i): tmp2 = REG##i >> 7; frs(REG##i <<= 1, tmp2); break;
+				// sla reg
+#define SLA(i) case 0x20 + (i): tmp2 = REG##i >> 7; frs(REG##i <<= 1, tmp2); break;
 				SET7(SLA)
-				// sla/sll (hl)
-				case 0x26: case 0x36:
+				// sla (hl)
+				case 0x26:
 				tmp2 = ld8(HL);
 				tmp = tmp2 >> 7;
 				frs(tmp2 <<= 1, tmp);
@@ -661,6 +662,16 @@ int32_t Z80::Execute(int32_t n) {
 				frs(tmp2 >>= 1, tmp);
 				st8(HL, tmp2);
 				CLOCK(1);
+				break;
+				// sll reg (set LSB)
+#define SLL(i) case 0x30 + (i): tmp2 = REG##i >> 7; frs(REG##i = REG##i << 1 | 1, tmp2); break;
+				SET7(SLL)
+				// sll (hl) (set LSB)
+				case 0x36:
+				tmp2 = ld8(HL);
+				tmp = tmp2 >> 7;
+				frs(tmp2 = tmp2 << 1 | 1, tmp);
+				st8(HL, tmp2);
 				break;
 				// srl reg
 #define SRL(i) case 0x38 + (i): tmp2 = REG##i; frs(REG##i = tmp2 >> 1, tmp2); break;
@@ -696,7 +707,6 @@ int32_t Z80::Execute(int32_t n) {
 				break;
 #endif
 			}
-			RefReg++;
 			break;
 			case 0xc3: // jp nn
 			tmp2 = IMM16;

@@ -1,6 +1,6 @@
 // Portable Z80 emulation class
-// Copyright (C) Yasuo Kuwahara 2002-2021
-// version 2.20
+// Copyright (C) Yasuo Kuwahara 2002-2025
+// version 2.30
 
 #ifndef _Z80_H_
 #define _Z80_H_

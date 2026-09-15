@@ -74,6 +74,8 @@
 	<string>8001</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>${MACOSX_DEPLOYMENT_TARGET}</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>Copyright © 2015-2024 Yasuo Kuwahara
 All rights reserved.</string>

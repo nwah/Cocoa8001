@@ -102,15 +102,43 @@ class MyGL;
 	_metalLayer.device = _device;
 	_metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm;
 	_metalLayer.framebufferOnly = YES;
-	_metalLayer.frame = self.layer.frame;
-	_metalLayer.drawableSize = self.bounds.size;
 	//_metalLayer.displaySyncEnabled = YES; // 10.13-; default value is YES
 	[self.layer addSublayer: _metalLayer];
+	[self updateBacking];
 //
 	_commandQueue = [_device newCommandQueue];
 #elif defined(USE_CA)
 	SimpleGLLayerSetup(self, &_needsRefresh);
+	[self updateBacking];
+#else
+	self.wantsBestResolutionOpenGLSurface = YES; // render at Retina pixel resolution
 #endif
+}
+
+// keep the render target in device pixels (Retina: 2x the view's point size)
+- (void)updateBacking {
+#if defined(USE_METAL) || defined(USE_CA)
+	CGFloat scale = self.window ? self.window.backingScaleFactor : [NSScreen mainScreen].backingScaleFactor;
+#endif
+#if defined(USE_METAL)
+	_metalLayer.contentsScale = scale;
+	_metalLayer.frame = self.bounds;
+	_metalLayer.drawableSize = [self convertRectToBacking:self.bounds].size;
+#elif defined(USE_CA)
+	self.layer.contentsScale = scale;
+#endif
+	_needsRefresh = YES;
+	[self setNeedsDisplay:YES];
+}
+
+- (void)viewDidChangeBackingProperties {
+	[super viewDidChangeBackingProperties];
+	[self updateBacking];
+}
+
+- (void)setFrameSize:(NSSize)newSize {
+	[super setFrameSize:newSize];
+	[self updateBacking];
 }
 
 - (void)close {
@@ -331,7 +359,8 @@ class MyGL;
 	[self drawSub:vram revmask:FALSE secretmask:FALSE];
 #else
 	static const GLfloat black[] = { 0.f, 0.f, 0.f, 1.f }, white[] = { 1.f, 1.f, 1.f, 1.f };
-	glViewport(0, 0, self.frame.size.width, self.frame.size.height);
+	NSRect backing = [self convertRectToBacking:self.bounds];
+	glViewport(0, 0, backing.size.width, backing.size.height);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadMatrixf(_rotation ? rotMtx : idtMtx);
 	glClearColor(0.f, 0.f, 0.f, 1.f);
@@ -360,10 +389,7 @@ class MyGL;
 	rect.size.width = _rotation ? 400 : 640;
 	rect.size.height = (_rotation ? 640 : 400) + titleHeight;
 	[self.window setFrame:rect display:NO];
-#ifdef USE_METAL
-	_metalLayer.frame = self.frame;
-	_metalLayer.drawableSize = self.frame.size;
-#endif
+	[self updateBacking];
 }
 
 @end
